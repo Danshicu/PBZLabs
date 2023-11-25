@@ -1,0 +1,4 @@
+create table editionTypes(
+	editionTypeId serial primary key NOT NULL,
+	editionName varchar(20)
+)

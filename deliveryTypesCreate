@@ -1,0 +1,4 @@
+create table deliveryTypes(
+	deliveryTypeId serial primary key NOT NULL,
+	nameOfType varchar(15) NOT NULL
+)

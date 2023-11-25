@@ -1,0 +1,13 @@
+create table subscriptions(
+	editionIndex varchar(15) NOT NULL,
+	countOfCopiesPerTime int NOT NULL,
+	startDate date NOT NULL,
+	endDate date NOT NULL,
+	subscriptionCost float NOT NULL,
+	frequencyOfRelease int NOT NULL,
+	deliveryTypeId int NOT NULL,
+	dateOfDelivery date NOT NULL,
+	foreign key(editionIndex) references edition(subscriptionIndex),
+	foreign key(frequencyOfRelease) references frequencyOfRelease(frequencyId),
+	foreign key(deliveryTypeId) references deliveryTypes(deliveryTypeId)
+)

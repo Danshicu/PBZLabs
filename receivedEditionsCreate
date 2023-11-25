@@ -1,0 +1,8 @@
+create table receivedEditions(
+	receiveDate DATE NOT NULL DEFAULT CURRENT_DATE,
+	subscriptionIndex varchar(15) NOT NULL,
+	numberOfCopy int,
+	workerId int,
+	foreign key(workerId) references workers(workerId),
+	foreign key(subscriptionIndex) references edition(subscriptionIndex)
+)

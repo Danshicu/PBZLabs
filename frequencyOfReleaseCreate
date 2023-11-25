@@ -1,0 +1,4 @@
+create table frequencyOfRelease(
+	frequencyId serial primary key NOT NULL,
+	frequency date NOT NULL
+)

@@ -1,0 +1,6 @@
+create table edition(
+	subscriptionIndex varchar(15) primary key NOT NULL,
+	editionName varchar(15) NOT NULL,
+	editionType int NOT NULL,
+	foreign key(editionType) references editionTypes(editionTypeId)
+)

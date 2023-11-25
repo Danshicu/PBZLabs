@@ -1,0 +1,4 @@
+create table posts(
+	postId serial primary key NOT NULL,
+	postName varchar(20) NOT NULL
+)
