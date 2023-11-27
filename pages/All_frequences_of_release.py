@@ -1,0 +1,3 @@
+from app.view.views import lookup_all_frequences_of_release_page
+
+lookup_all_frequences_of_release_page()

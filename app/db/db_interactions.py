@@ -1,7 +1,10 @@
-import db
+from db import DBConnection
+from db import DBController
+from psycopg2 import sql
+import datetime
 import uuid
 
-dbController = db.DBController()
+dbController = DBController()
 
 def get_all_values(tableName):
     with dbController.Cursor() as cursor:
@@ -66,11 +69,11 @@ def __build_insert_columns__(tableName):
             print(e)
 
 def get_post_id_to_name_dictionary():
-    tuples = get_all_values(db.POSTS_TABLE)
+    tuples = get_all_values(DBConnection.POSTS_TABLE)
     return create_dictionary_from_tuples(tuples)
 
 def get_worker_uuid_name_post_tuples():
-    workers = get_all_values(db.WORKERS_TABLE)
+    workers = get_all_values(DBConnection.WORKERS_TABLE)
     post_name_to_id = get_post_id_to_name_dictionary()
     uuid_list = [workers[i][0] for i in range(0, len(workers))]
     worker_tuples = list()
@@ -81,7 +84,7 @@ def get_worker_uuid_name_post_tuples():
     return tuples
 
 def get_edition_index_to_name_dictionary():
-    tuples = get_all_values(db.EDITION_TABLE)
+    tuples = get_all_values(DBConnection.EDITION_TABLE)
     edition_tuples = list()
     for i in range(0, len(tuples)):
         tempTuple = (tuples[i][0], tuples[i][1])
@@ -102,7 +105,61 @@ def create_dictionary_from_tuples(inputTuple):
     resultDictionary = dict((x,y) for x,y in inputTuple)
     return resultDictionary
 
+def edit_subscription(values, uuid:str):
+    update_query = sql.SQL("UPDATE subscriptions SET {} WHERE thisID = %s;").format(
+        sql.SQL(', ').join(
+            sql.Composed([sql.Identifier(col), sql.SQL(' = %s')]) for col in values
+        )
+    )
+    with dbController.Cursor() as cursor:
+        try:
+            cursor.execute(update_query, list(values.values()) + [uuid])
+            dbController.Save()
+        except Exception as e:
+            print(e)
 
+def edit_worker(values, uuid:str):
+    update_query = sql.SQL("UPDATE workers SET {} WHERE thisID = %s;").format(
+        sql.SQL(', ').join(
+            sql.Composed([sql.Identifier(col), sql.SQL(' = %s')]) for col in values
+        )
+    )
+    with dbController.Cursor() as cursor:
+        try:
+            cursor.execute(update_query, list(values.values()) + [uuid])
+            dbController.Save()
+        except Exception as e:
+            print(e)
+
+def receive_edition():
+    pass
+
+def delete_worker(uuid: str):
+    query = f"DELETE FROM {DBConnection.WORKERS_TABLE} WHERE thisID = {uuid};"
+    with dbController.Cursor() as cursor:
+        try:
+            cursor.execute(query)
+            dbController.Save()
+        except Exception as e:
+            print(e)
+
+def delete_subscription(uuid: str):
+    query = f"DELETE FROM {DBConnection.SUBSCRIPTIONS_TABLE} WHERE thisID = {uuid};"
+    with dbController.Cursor() as cursor:
+        try:
+            cursor.execute(query)
+            dbController.Save()
+        except Exception as e:
+            print(e)
+
+def get_editions_by_year():
+    pass
+
+def get_worker_received_edition():
+    pass
+
+def get_non_received_editions():
+    pass
 
 print(get_edition_index_to_name_dictionary())
 

@@ -1,0 +1,3 @@
+from app.view.views import insert_received_editions_page
+
+insert_received_editions_page()

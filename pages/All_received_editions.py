@@ -1,0 +1,3 @@
+from app.view.views import lookup_all_received_editions_page
+
+lookup_all_received_editions_page()

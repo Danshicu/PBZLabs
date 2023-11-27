@@ -3,13 +3,6 @@ import streamlit as st
 
 from ..db import db
 from ..db import db_interactions
-from .model_interaction import submit_position_creation
-from .model_interaction import submit_department_creation
-from .model_interaction import submit_employee_creation
-from .model_interaction import submit_delete_employees
-from .model_interaction import submit_employee_edit
-from .model_interaction import submit_delete_records
-
 
 
 def main_page():
@@ -48,7 +41,7 @@ def add_post_page():
 def lookup_all_workers_page():
     st.set_page_config(page_title='Просмотр всех сотрудников библиотеки', layout='wide')
     st.write('## Все сотрудники библиотеки')
-    positions = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.WORKERS_TABLE))
+    positions = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.DBConnection.WORKERS_TABLE))
     columns = st.columns(4)
     with columns[0]:
         st.write('*Код сотрудника*')
@@ -235,7 +228,7 @@ def lookup_all_frequences_of_release_page():
 
 
 
-def add_department_page():
+'''def add_department_page():
     st.set_page_config(page_title='Добавление подразделения', layout='wide')
     st.write('## Добавить подразделение')
     st.text_input('Название подразделения', placeholder='Введите название подразделения сюда', max_chars=100,
@@ -496,7 +489,7 @@ def lookup_history_page():
         if button:
             submit_delete_records(st.session_state.records_to_delete)
             st.rerun()
-
+'''
 
 
 

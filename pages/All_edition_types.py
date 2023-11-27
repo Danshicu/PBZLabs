@@ -1,0 +1,3 @@
+from app.view.views import lookup_all_edition_types_page
+
+lookup_all_edition_types_page()
