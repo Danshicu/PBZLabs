@@ -1,227 +1,305 @@
 import datetime
+import uuid
+
 import streamlit as st
 
 from ..db import db
 from ..db import db_interactions
 
 
-def main_page():
-    st.set_page_config(page_title='БД библиотеки', layout='wide')
-    st.write('## Главная страница, откуда можно отправиться куда угодно')
+#def main_page():
+#    st.set_page_config(page_title='БД библиотеки', layout='wide')
+#    st.write('## Главная страница, откуда можно отправиться куда угодно')
+
+class PagesController:
+
+    @staticmethod
+    def set_current_worker_state(state):
+        st.session_state.currentWorkerOption = state
+
+    @staticmethod
+    def add_worker_page():
+        st.set_page_config(page_title='Добавление нового сотрудника', layout='wide')
+        st.write('## Информация о новом сотруднике')
+        nameInput = st.text_input('ФИО сотрудника', placeholder='Введите ФИО сотрудника сюда...', max_chars=30)
+        posts = db_interactions.get_post_id_to_name_dictionary()
+        postID = st.selectbox('Должность', options=list(posts.values()))
+        isActive = st.checkbox('Работник в данный момент активен?')
+        workerid=str(uuid.uuid4())
+        addButton = st.button('Добавить работника в базу')
+        if addButton:
+            db_interactions.insert_into(db.DBConnection.WORKERS_TABLE,
+                                        [workerid, nameInput, db_interactions.find_key_by_value(posts, postID), isActive])
+
+    @staticmethod
+    def edit_worker_page(placeholder):
+        with placeholder.container():
+            st.header = 'Изменение информации о сотруднике'
+            st.write('## Новая информация о сотруднике')
+            nameInput = st.text_input('ФИО сотрудника', placeholder='Введите ФИО сотрудника сюда...', max_chars=30)
+            posts = db_interactions.get_post_id_to_name_dictionary()
+            postID = st.selectbox('Должность', options=list(posts.values()))
+            isActive = st.checkbox('Работник в данный момент активен?')
+            if st.button('Отменить', on_click=lambda : PagesController.set_current_worker_state('look')):
+                pass
+            if st.button('Изменить данные работника'):#, on_click=lambda : PagesController.set_current_worker_state('look')):
+                db_interactions.edit_worker([st.session_state.edit_worker_id, nameInput, db_interactions.find_key_by_value(posts, postID), isActive],
+                                            st.session_state.edit_worker_id)
+                PagesController.set_current_worker_state('look')
+                #placeholder.empty()
+                PagesController.lookup_workers_container(placeholder)
 
 
 
 
-def add_worker_page():
-    print()
 
-
-def lookup_all_posts_page():
-    st.set_page_config(page_title='Просмотр всех должностей в библиотеке', layout='wide')
-    st.write('## Все должности в библиотеке')
-    positions = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.POSTS_TABLE))
-    columns = st.columns(2)
-    with columns[0]:
-        st.write('*Код должности*')
-    with columns[1]:
-        st.write('*Название должности*')
-    for position in positions:
+    @staticmethod
+    def lookup_all_posts_page():
+        st.set_page_config(page_title='Просмотр всех должностей в библиотеке', layout='wide')
+        st.write('## Все должности в библиотеке')
+        positions = db_interactions.get_all_values(db.DBConnection.POSTS_TABLE)
+        columns = st.columns(2)
         with columns[0]:
-            st.write(position[0])
+            st.write('*Код должности*')
         with columns[1]:
-            st.write(position[1])
+            st.write('*Название должности*')
+        for position in positions:
+            with columns[0]:
+                st.write(position[0])
+            with columns[1]:
+                st.write(position[1])
 
-def add_post_page():
-    st.set_page_config(page_title='Добавить новую должность', layout='wide')
-    st.write('## Добавить должность')
-    st.text_input('Полное название должности', placeholder='Введите полное название должности сюда...',
-                  key='postName', max_chars=20)
-    st.button('Добавить новую должность', on_click=submit_position_creation)
+    @staticmethod
+    def add_post_page():
+        st.set_page_config(page_title='Добавить новую должность', layout='wide')
+        st.write('## Добавить должность')
+        input1 = st.text_input('Кодовый номер должности', placeholder='Введите кодовый номер должности сюда...')
+        input2 = st.text_input('Полное название должности', placeholder='Введите полное название должности сюда...', max_chars=20)
+        addButton = st.button('Добавить новую должность')
+        if addButton:
+            db_interactions.insert_into(db.DBConnection.POSTS_TABLE, [input1, input2])
 
-def lookup_all_workers_page():
-    st.set_page_config(page_title='Просмотр всех сотрудников библиотеки', layout='wide')
-    st.write('## Все сотрудники библиотеки')
-    positions = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.DBConnection.WORKERS_TABLE))
-    columns = st.columns(4)
-    with columns[0]:
-        st.write('*Код сотрудника*')
-    with columns[1]:
-        st.write('*ФИО сотрудника*')
-    with columns[2]:
-        st.write('*Должность сотрудника*')
-    with columns[3]:
-        st.write('*Сотрудник работает в данный момент*')
-    postIdToNameDictionary = db_interactions.get_post_id_to_name_dictionary()
-    for position in positions:
+
+    @staticmethod
+    def lookup_workers_container(placeholder):
+        st.header = 'Просмотр всех сотрудников библиотеки'
+        workers = db_interactions.get_all_values(db.DBConnection.WORKERS_TABLE)
+        postIdToNameDictionary = db_interactions.get_post_id_to_name_dictionary()
+        with placeholder.container():
+            st.write('## Все сотрудники библиотеки')
+            columns = st.columns(5)
+            with columns[0]:
+                st.write('*Код сотрудника*')
+            with columns[1]:
+                st.write('*ФИО сотрудника*')
+            with columns[2]:
+                st.write('*Должность сотрудника*')
+            with columns[3]:
+                st.write('*Сотрудник работает в данный момент*')
+            with columns[4]:
+                st.write('*Изменить*')
+            for worker in workers:
+                with st.container():
+                    columns = st.columns(5)
+                    with columns[0]:
+                        st.write(worker[0])
+                    with columns[1]:
+                        st.write(worker[1])
+                    with columns[2]:
+                        st.write(postIdToNameDictionary[worker[2]])
+                    with columns[3]:
+                        st.write(worker[3])
+                    with columns[4]:
+                        edit_button = st.button('⚙️', key = worker[0])#, on_click= lambda: PagesController.set_current_worker_state('edit'))
+                        if edit_button:
+                            st.session_state.edit_worker_id = worker[0]
+                            PagesController.set_current_worker_state('edit')
+                            placeholder.empty()
+
+
+    @staticmethod
+    def lookup_all_workers_page():
+        if 'currentWorkerOption' not in st.session_state:
+            st.session_state.currentWorkerOption = 'look'
+        st.set_page_config(layout='wide')
+        placeholder = st.empty()
+        options = ['edit', 'look', 'delete']
+        if st.session_state.currentWorkerOption == 'look':
+            PagesController.lookup_workers_container(placeholder)
+        if st.session_state.currentWorkerOption == 'edit':
+            PagesController.edit_worker_page(placeholder)
+
+
+    @staticmethod
+    def lookup_all_edition_types_page():
+        st.set_page_config(page_title='Просмотр всех видов изданий', layout='wide')
+        st.write('## Все виды изданий')
+        editionTypes = db_interactions.get_all_values(db.DBConnection.EDITION_TYPES_TABLE)
+        columns = st.columns(2)
         with columns[0]:
-            st.write(position[0])
+            st.write('*Код вида издания*')
         with columns[1]:
-            st.write(position[1])
+            st.write('*Название вида издания*')
+        for edType in editionTypes:
+            with columns[0]:
+                st.write(edType[0])
+            with columns[1]:
+                st.write(edType[1])
+
+    @staticmethod
+    def lookup_all_editions_page():
+        st.set_page_config(page_title='Просмотр всех изданий', layout='wide')
+        st.write('## Все издания')
+        editions = db_interactions.get_all_values(db.DBConnection.EDITION_TABLE)
+        columns = st.columns(4)
+        with columns[0]:
+            st.write('*Подписной индекс издания*')
+        with columns[1]:
+            st.write('*Название издания*')
         with columns[2]:
-            st.write(postIdToNameDictionary[position[2]])
+            st.write('*Тип издания*')
         with columns[3]:
-            st.write(position[3])
+            st.write('*Стоимость одного экземпляра*')
+        idToTypeNameDictionary = db_interactions.create_dictionary_from_tuples(db_interactions.get_all_values(db.DBConnection.EDITION_TYPES_TABLE))
 
-def lookup_all_edition_types_page():
-    st.set_page_config(page_title='Просмотр всех видов изданий', layout='wide')
-    st.write('## Все виды изданий')
-    editionTypes = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.EDITION_TYPES_TABLE))
-    columns = st.columns(2)
-    with columns[0]:
-        st.write('*Код вида издания*')
-    with columns[1]:
-        st.write('*Название вида издания*')
-    for edType in editionTypes:
-        with columns[0]:
-            st.write(edType[0])
-        with columns[1]:
-            st.write(edType[1])
+        for edition in editions:
+            with columns[0]:
+                st.write(edition[0])
+            with columns[1]:
+                st.write(edition[1])
+            with columns[2]:
+                st.write(idToTypeNameDictionary[edition[2]])
+            with columns[3]:
+                st.write(edition[3])
 
-def lookup_all_editions_page():
-    st.set_page_config(page_title='Просмотр всех изданий', layout='wide')
-    st.write('## Все издания')
-    editions = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.EDITION_TABLE))
-    columns = st.columns(4)
-    with columns[0]:
-        st.write('*Подписной индекс издания*')
-    with columns[1]:
-        st.write('*Название издания*')
-    with columns[2]:
-        st.write('*Тип издания*')
-    with columns[3]:
-        st.write('*Стоимость одного экземпляра*')
-    idToTypeNameDictionary = db_interactions.create_dictionary_from_tuples(db_interactions.get_all_values(db.EDITION_TYPES_TABLE))
-    for edition in editions:
+    @staticmethod
+    def lookup_all_received_editions_page():
+        st.set_page_config(page_title='Просмотр всех полученных изданий', layout='wide')
+        st.write('## Все полученные издания')
+        editions = db_interactions.get_all_values(db.DBConnection.RECEIVED_EDITIONS_TABLE)
+        columns = st.columns(5)
         with columns[0]:
-            st.write(edition[0])
+            st.write('*Дата получения*')
         with columns[1]:
-            st.write(edition[1])
+            st.write('*Подписной индекс издания*')
         with columns[2]:
-            st.write(idToTypeNameDictionary[edition[2]])
+            st.write('*Количество экземпляров*')
         with columns[3]:
-            st.write(edition[3])
-
-def lookup_all_received_editions_page():
-    st.set_page_config(page_title='Просмотр всех полученных изданий', layout='wide')
-    st.write('## Все полученные издания')
-    editions = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.RECEIVED_EDITIONS_TABLE))
-    columns = st.columns(5)
-    with columns[0]:
-        st.write('*Дата получения*')
-    with columns[1]:
-        st.write('*Подписной индекс издания*')
-    with columns[2]:
-        st.write('*Количество экземпляров*')
-    with columns[3]:
-        st.write('*ФИО сотрудника*')
-    with columns[4]:
-        st.write('*Должность сотрудника*')
-    workers_name_post = db_interactions.get_worker_uuid_name_post_tuples()
-    for edition in editions:
-        with columns[0]:
-            st.write(edition[0])
-        with columns[1]:
-            st.write(edition[1])
-        with columns[2]:
-            st.write(edition[2])
-        with columns[3]:
-            st.write(workers_name_post[edition][0])
+            st.write('*ФИО сотрудника*')
         with columns[4]:
-            st.write(workers_name_post[edition][1])
+            st.write('*Должность сотрудника*')
+        workers_name_post = db_interactions.get_worker_uuid_name_post_tuples()
+        for edition in editions:
+            with columns[0]:
+                st.write(edition[0])
+            with columns[1]:
+                st.write(edition[1])
+            with columns[2]:
+                st.write(edition[2])
+            with columns[3]:
+                st.write(workers_name_post[edition][0])
+            with columns[4]:
+                st.write(workers_name_post[edition][1])
 
-def insert_received_editions_page():
-    print()
+    @staticmethod
+    def insert_received_editions_page():
+        print()
 
-def lookup_all_delivery_types_page():
-    st.set_page_config(page_title='Просмотр всех видов доставки', layout='wide')
-    st.write('## Все виды доставки')
-    deliveryTypes = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.DELIVERY_TYPES_TABLE))
-    columns = st.columns(2)
-    with columns[0]:
-        st.write('*Код вида доставки*')
-    with columns[1]:
-        st.write('*Название вида доставки*')
-    for delType in deliveryTypes:
+    @staticmethod
+    def lookup_all_delivery_types_page():
+        st.set_page_config(page_title='Просмотр всех видов доставки', layout='wide')
+        st.write('## Все виды доставки')
+        deliveryTypes = db_interactions.get_all_values(db.DBConnection.DELIVERY_TYPES_TABLE)
+        columns = st.columns(2)
         with columns[0]:
-            st.write(delType[0])
+            st.write('*Код вида доставки*')
         with columns[1]:
-            st.write(delType[1])
+            st.write('*Название вида доставки*')
+        for delType in deliveryTypes:
+            with columns[0]:
+                st.write(delType[0])
+            with columns[1]:
+                st.write(delType[1])
 
-
-def lookup_all_subscriptions_page():
-    st.set_page_config(page_title='Просмотр всех оформленных подписок', layout='wide')
-    st.write('## Все оформленные подписки')
-    subscriptions = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.SUBSCRIPTIONS_TABLE))
-    columns = st.columns(8)
-    with columns[0]:
-        st.write('*Название издания*')
-    with columns[1]:
-        st.write('*Количество экземпляров за одну доставку*')
-    with columns[2]:
-        st.write('*Дата начала подписки*')
-    with columns[3]:
-        st.write('*Дата окончания подписки*')
-    with columns[4]:
-        st.write('*Стоимость подписки*')
-    with columns[5]:
-        st.write('*Периодичность доставки*')
-    with columns[6]:
-        st.write('*Способ доставки*')
-    with columns[7]:
-        st.write('*Предполагаемая дата доставки*')
-    idToNameDictionary = db_interactions.get_edition_index_to_name_dictionary()
-    frequencyNames = db_interactions.create_dictionary_from_tuples(db_interactions.get_all_values(db.FREQUENCY_OF_RELEASE_TABLE))
-    deliveryTypeName = db_interactions.create_dictionary_from_tuples(db_interactions.get_all_values(db.DELIVERY_TYPES_TABLE))
-    for edition in subscriptions:
+    @staticmethod
+    def lookup_all_subscriptions_page():
+        st.set_page_config(page_title='Просмотр всех оформленных подписок', layout='wide')
+        st.write('## Все оформленные подписки')
+        subscriptions = db_interactions.get_all_values(db.DBConnection.SUBSCRIPTIONS_TABLE)
+        columns = st.columns(8)
         with columns[0]:
-            st.write(idToNameDictionary[edition[0]])
+            st.write('*Название издания*')
         with columns[1]:
-            st.write(edition[1])
+            st.write('*Количество экземпляров за одну доставку*')
         with columns[2]:
-            st.write(edition[2])
+            st.write('*Дата начала подписки*')
         with columns[3]:
-            st.write(edition[3])
+            st.write('*Дата окончания подписки*')
         with columns[4]:
-            st.write(edition[4])
+            st.write('*Стоимость подписки*')
         with columns[5]:
-            st.write(frequencyNames[edition[5]])
+            st.write('*Периодичность доставки*')
         with columns[6]:
-            st.write(deliveryTypeName[edition][6])
+            st.write('*Способ доставки*')
         with columns[7]:
-            st.write(edition[7])
+            st.write('*Предполагаемая дата доставки*')
+        idToNameDictionary = db_interactions.get_edition_index_to_name_dictionary()
+        frequencyNames = db_interactions.create_dictionary_from_tuples(db_interactions.get_all_values(db.DBConnection.FREQUENCY_OF_RELEASE_TABLE))
+        deliveryTypeName = db_interactions.create_dictionary_from_tuples(db_interactions.get_all_values(db.DBConnection.DELIVERY_TYPES_TABLE))
+        for edition in subscriptions:
+            with columns[0]:
+                st.write(idToNameDictionary[edition[0]])
+            with columns[1]:
+                st.write(edition[1])
+            with columns[2]:
+                st.write(edition[2])
+            with columns[3]:
+                st.write(edition[3])
+            with columns[4]:
+                st.write(edition[4])
+            with columns[5]:
+                st.write(frequencyNames[edition[5]])
+            with columns[6]:
+                st.write(deliveryTypeName[edition][6])
+            with columns[7]:
+                st.write(edition[7])
 
-def lookup_all_issued_editions_page():
-    st.set_page_config(page_title='Просмотр всех выписанных изданий', layout='wide')
-    st.write('## Все выписанные издания')
-    editions = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.ISSUED_EDITIONS_TABLE))
-    columns = st.columns(2)
-    with columns[0]:
-        st.write('*Подписной индекс издания*')
-    with columns[1]:
-        st.write('*Количество не полученных экземпляров*')
-    for edition in editions:
+    @staticmethod
+    def lookup_all_issued_editions_page():
+        st.set_page_config(page_title='Просмотр всех выписанных изданий', layout='wide')
+        st.write('## Все выписанные издания')
+        editions = db_interactions.get_all_values(db.DBConnection.ISSUED_EDITIONS_TABLE)
+        columns = st.columns(2)
         with columns[0]:
-            st.write(edition[0])
+            st.write('*Подписной индекс издания*')
         with columns[1]:
-            st.write(edition[1])
+            st.write('*Количество не полученных экземпляров*')
+        for edition in editions:
+            with columns[0]:
+                st.write(edition[0])
+            with columns[1]:
+                st.write(edition[1])
 
-def insert_subscription_page():
-    print()
+    @staticmethod
+    def insert_subscription_page():
+        print()
 
-def lookup_all_frequences_of_release_page():
-    st.set_page_config(page_title='Просмотр всех вариантов периодичности доставки', layout='wide')
-    st.write('## Все варианты периодичности доставки')
-    frequencies = db_interactions.dbController.Cursor().execute(db_interactions.get_all_values(db.FREQUENCY_OF_RELEASE_TABLE))
-    columns = st.columns(2)
-    with columns[0]:
-        st.write('*Код варианта периодичности*')
-    with columns[1]:
-        st.write('*Название варианта периодичности*')
-    for frequency in frequencies:
+    @staticmethod
+    def lookup_all_frequences_of_release_page():
+        st.set_page_config(page_title='Просмотр всех вариантов периодичности доставки', layout='wide')
+        st.write('## Все варианты периодичности доставки')
+        frequencies = db_interactions.get_all_values(db.DBConnection.FREQUENCY_OF_RELEASE_TABLE)
+        columns = st.columns(2)
         with columns[0]:
-            st.write(frequency[0])
+            st.write('*Код варианта периодичности*')
         with columns[1]:
-            st.write(frequency[1])
+            st.write('*Название варианта периодичности*')
+        for frequency in frequencies:
+            with columns[0]:
+                st.write(frequency[0])
+            with columns[1]:
+                name = str(frequency[1]).split(', ')
+                st.write(name[0])
 
 
 

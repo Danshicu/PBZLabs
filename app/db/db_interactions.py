@@ -1,5 +1,5 @@
-from db import DBConnection
-from db import DBController
+from .db import DBController
+from .db import DBConnection
 from psycopg2 import sql
 import datetime
 import uuid
@@ -64,7 +64,7 @@ def __build_insert_columns__(tableName):
         try:
             cursor.execute(query)
             columnNames = [row[0] for row in cursor]
-            print(columnNames)
+            return columnNames
         except Exception as e:
             print(e)
 
@@ -119,14 +119,10 @@ def edit_subscription(values, uuid:str):
             print(e)
 
 def edit_worker(values, uuid:str):
-    update_query = sql.SQL("UPDATE workers SET {} WHERE thisID = %s;").format(
-        sql.SQL(', ').join(
-            sql.Composed([sql.Identifier(col), sql.SQL(' = %s')]) for col in values
-        )
-    )
+    update_query = f"UPDATE workers SET fullname = '{values[1]}', postId ={values[2]}, isActive = {values[3]} WHERE thisID = '{uuid}';"
     with dbController.Cursor() as cursor:
         try:
-            cursor.execute(update_query, list(values.values()) + [uuid])
+            cursor.execute(update_query)
             dbController.Save()
         except Exception as e:
             print(e)
@@ -161,9 +157,29 @@ def get_worker_received_edition():
 def get_non_received_editions():
     pass
 
-print(get_edition_index_to_name_dictionary())
+def find_key_by_value(dictionary, value):
+    for key in dictionary.keys():
+        if dictionary[key] == value:
+            return key
+
+'''def get_dictionary_strings_from(tableName):
+    tuples = get_all_values(tableName)
+    dictValues = []
+    for row in tuples:
+        dictValues.append(__build_dictionary_string(row[0], row[1]))
+    return dictValues
+
+def __build_dictionary_string(key, value):
+    return f"{key}-{value}"
+
+def get_key_from_string(string):
+    return string.split('-')[0]'''
+
+
+#print(get_edition_index_to_name_dictionary())
 
 #print(get_column_values('thisID', db.POSTS_TABLE))
+#print(__build_insert_columns__(DBConnection.FREQUENCY_OF_RELEASE_TABLE))
 
 #with dbController.Cursor() as cursor:
 #    query = "create table frequencyOfRelease(thisID serial primary key,frequency interval NOT NULL,CHECK(frequency > interval'1 day'));"
@@ -185,3 +201,5 @@ print(get_edition_index_to_name_dictionary())
 #for row in workers:
 #    print(type(row))
 #    print(row)
+
+#edit_worker(['1', '2', '3'], '4')
