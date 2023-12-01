@@ -1,3 +1,3 @@
-from app.view.views import add_post_page
+from app.view.views import PagesController
 
-add_post_page()
+PagesController.add_post_page()

@@ -1,3 +1,3 @@
-from app.view.views import Pages
+from app.view.views import PagesController
 
-Pages.add_worker_page()
+PagesController.add_worker_page()

@@ -1,3 +1,3 @@
-from app.view.views import lookup_all_frequences_of_release_page
+from app.view.views import PagesController
 
-lookup_all_frequences_of_release_page()
+PagesController.lookup_all_frequences_of_release_page()

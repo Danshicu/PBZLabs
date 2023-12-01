@@ -1,3 +1,3 @@
-from app.view.views import insert_subscription_page
+from app.view.views import PagesController
 
-insert_subscription_page()
+PagesController.insert_subscription_page()

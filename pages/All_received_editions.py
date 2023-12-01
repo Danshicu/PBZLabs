@@ -1,3 +1,3 @@
-from app.view.views import lookup_all_received_editions_page
+from app.view.views import PagesController
 
-lookup_all_received_editions_page()
+PagesController.lookup_all_received_editions_page()

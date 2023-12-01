@@ -43,7 +43,6 @@ def insert_into(tableName, values):
                     values.insert(0, defValue)
             elif deltaCount<0:
                 raise Exception('incorrect values count')
-            print(values)
             cursor.execute(query, values)
             dbController.Save()
         except Exception as e:
@@ -92,6 +91,15 @@ def get_edition_index_to_name_dictionary():
     tupless = dict(edition_tuples)
     return tupless
 
+def get_edition_cost_from_index(index:str):
+    query = f"SELECT subscriptionPerCopyCost FROM {DBConnection.EDITION_TABLE} WHERE subscriptionIndex = '{index}'"
+    with dbController.Cursor() as cursor:
+        try:
+            cursor.execute(query)
+            return cursor.fetchone()[0]
+        except Exception as e:
+            print(e)
+
 def get_rows_count(tableName):
     query = f"SELECT COUNT(column_name) FROM information_schema.columns WHERE table_name = '{tableName}';"
     with dbController.Cursor() as cursor:
@@ -131,7 +139,7 @@ def receive_edition():
     pass
 
 def delete_worker(uuid: str):
-    query = f"DELETE FROM {DBConnection.WORKERS_TABLE} WHERE thisID = {uuid};"
+    query = f"DELETE FROM {DBConnection.WORKERS_TABLE} WHERE thisID = '{uuid}';"
     with dbController.Cursor() as cursor:
         try:
             cursor.execute(query)
@@ -140,7 +148,7 @@ def delete_worker(uuid: str):
             print(e)
 
 def delete_subscription(uuid: str):
-    query = f"DELETE FROM {DBConnection.SUBSCRIPTIONS_TABLE} WHERE thisID = {uuid};"
+    query = f"DELETE FROM {DBConnection.SUBSCRIPTIONS_TABLE} WHERE thisID = '{uuid}';"
     with dbController.Cursor() as cursor:
         try:
             cursor.execute(query)

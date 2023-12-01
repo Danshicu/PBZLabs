@@ -1,3 +1,2 @@
-from app.view.views import lookup_all_posts_page
-
-lookup_all_posts_page()
+from app.view.views import PagesController
+PagesController.lookup_all_posts_page()

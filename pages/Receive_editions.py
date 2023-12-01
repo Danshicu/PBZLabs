@@ -1,3 +1,3 @@
-from app.view.views import insert_received_editions_page
+from app.view.views import PagesController
 
-insert_received_editions_page()
+PagesController.insert_received_editions_page()
