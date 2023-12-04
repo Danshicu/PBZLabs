@@ -6,6 +6,12 @@ import uuid
 
 dbController = DBController()
 
+def check_issued_editions():
+    subscriptions = get_all_values(DBConnection.SUBSCRIPTIONS_TABLE)
+    for subscription in subscriptions:
+        if subscription[8] <= datetime.date.today():
+            insert_into(DBConnection.ISSUED_EDITIONS_TABLE, [subscription[0], subscription[2], datetime.date.today()])
+
 def get_all_values(tableName):
     with dbController.Cursor() as cursor:
         try:
@@ -14,6 +20,7 @@ def get_all_values(tableName):
             values = cursor.fetchall()
             return values
         except Exception as e:
+            dbController.Reset()
             print(e)
 
 def get_column_values(columnName, tableName):
@@ -24,6 +31,7 @@ def get_column_values(columnName, tableName):
             values = cursor.fetchall()
             return values
         except Exception as e:
+            dbController.Reset()
             print(e)
 
 def __select_all_query__(tableName):
@@ -46,6 +54,7 @@ def insert_into(tableName, values):
             cursor.execute(query, values)
             dbController.Save()
         except Exception as e:
+            dbController.Reset()
             print(e)
 
 def __build_insert_values__(values):
@@ -65,6 +74,7 @@ def __build_insert_columns__(tableName):
             columnNames = [row[0] for row in cursor]
             return columnNames
         except Exception as e:
+            dbController.Reset()
             print(e)
 
 def get_post_id_to_name_dictionary():
@@ -82,6 +92,14 @@ def get_worker_uuid_name_post_tuples():
     tuples = dict(zip(uuid_list, worker_tuples))
     return tuples
 
+def get_worker_uuid_to_name_dict():
+    workers = get_all_values(DBConnection.WORKERS_TABLE)
+    return create_dictionary_from_tuples([(pair[0], pair[1]) for pair in workers])
+
+def get_valid_workers_uuid_to_name_dict():
+    workers = get_valid_workers()
+    return create_dictionary_from_tuples([(pair[0], pair[1]) for pair in workers])
+
 def get_edition_index_to_name_dictionary():
     tuples = get_all_values(DBConnection.EDITION_TABLE)
     edition_tuples = list()
@@ -98,6 +116,7 @@ def get_edition_cost_from_index(index:str):
             cursor.execute(query)
             return cursor.fetchone()[0]
         except Exception as e:
+            dbController.Reset()
             print(e)
 
 def get_rows_count(tableName):
@@ -107,6 +126,7 @@ def get_rows_count(tableName):
             cursor.execute(query)
             return cursor.fetchone()[0]
         except Exception as e:
+            dbController.Reset()
             print(e)
 
 def create_dictionary_from_tuples(inputTuple):
@@ -114,16 +134,13 @@ def create_dictionary_from_tuples(inputTuple):
     return resultDictionary
 
 def edit_subscription(values, uuid:str):
-    update_query = sql.SQL("UPDATE subscriptions SET {} WHERE thisID = %s;").format(
-        sql.SQL(', ').join(
-            sql.Composed([sql.Identifier(col), sql.SQL(' = %s')]) for col in values
-        )
-    )
+    update_query = f"UPDATE subscriptions SET editionIndex = '{values[0]}', countOfCopiesPerTime = {values[1]}, startDate = '{(values[2])}', endDate = '{values[3]}', subscriptionCost = {values[4]}, frequencyOfRelease = {values[5]}, deliveryTypeId = {values[6]}, dateOfDelivery = '{values[7]}', isActive = '{values[8]}' WHERE thisID = '{uuid}';"
     with dbController.Cursor() as cursor:
         try:
-            cursor.execute(update_query, list(values.values()) + [uuid])
+            cursor.execute(update_query)
             dbController.Save()
         except Exception as e:
+            dbController.Reset()
             print(e)
 
 def edit_worker(values, uuid:str):
@@ -133,37 +150,85 @@ def edit_worker(values, uuid:str):
             cursor.execute(update_query)
             dbController.Save()
         except Exception as e:
+            dbController.Reset()
             print(e)
 
-def receive_edition():
-    pass
-
 def delete_worker(uuid: str):
-    query = f"DELETE FROM {DBConnection.WORKERS_TABLE} WHERE thisID = '{uuid}';"
+    query = f"UPDATE {DBConnection.WORKERS_TABLE} SET isActive = False WHERE thisID = '{uuid}';"
     with dbController.Cursor() as cursor:
         try:
             cursor.execute(query)
             dbController.Save()
         except Exception as e:
+            dbController.Reset()
             print(e)
 
 def delete_subscription(uuid: str):
-    query = f"DELETE FROM {DBConnection.SUBSCRIPTIONS_TABLE} WHERE thisID = '{uuid}';"
+    query = f"UPDATE {DBConnection.SUBSCRIPTIONS_TABLE} SET isActive = False WHERE thisID = '{uuid}';"
     with dbController.Cursor() as cursor:
         try:
             cursor.execute(query)
             dbController.Save()
         except Exception as e:
+            dbController.Reset()
             print(e)
 
-def get_editions_by_year():
-    pass
+def get_edition_to_type_dict():
+    editions = get_all_values(DBConnection.EDITION_TABLE)
+    return create_dictionary_from_tuples([(pair[0], pair[2]) for pair in editions])
 
-def get_worker_received_edition():
-    pass
 
-def get_non_received_editions():
-    pass
+
+def get_editions_by_year(year):
+    editions = get_all_values(DBConnection.SUBSCRIPTIONS_TABLE)
+    newEditions = []
+    editionToName = get_edition_index_to_name_dictionary()
+    editionToType = get_edition_to_type_dict()
+    editionTypeToName = create_dictionary_from_tuples(get_all_values(DBConnection.EDITION_TYPES_TABLE))
+    for edition in editions:
+        if edition[3].year == year:
+            editionTuple = (editionToName[edition[1]], editionTypeToName[editionToType[edition[1]]], edition[5], edition[3], edition[4])
+            newEditions.append(editionTuple)
+    newEditions.sort(key = lambda x: find_key_by_value(editionTypeToName, x[1]))
+    return newEditions
+
+def get_worker_received_edition(subscriptionIndex, date):
+    editions = get_all_values(DBConnection.RECEIVED_EDITIONS_TABLE)
+    received = []
+    for edition in editions:
+        if edition[0].year == date.year and edition[0].month == date.month and edition[2] == subscriptionIndex:
+            received.append(edition)
+    return received
+
+def get_valid_workers():
+    workers = get_all_values(DBConnection.WORKERS_TABLE)
+    validVorkers = []
+    for worker in workers:
+        if worker[3] == True:
+            validVorkers.append(worker)
+    return validVorkers
+
+def get_non_received_count(subscriptionUUID, issueDate):
+    query = f"SELECT nonReceivedEditionCount FROM {DBConnection.ISSUED_EDITIONS_TABLE} WHERE subscriptionID = '{subscriptionUUID}' AND dateOfIssue = '{issueDate}'"
+    with dbController.Cursor() as cursor:
+        try:
+            cursor.execute(query)
+            return cursor.fetchone()[0]
+        except Exception as e:
+            dbController.Reset()
+            print(e)
+
+def get_active_subscriptions():
+    subscriptions = get_all_values(DBConnection.SUBSCRIPTIONS_TABLE)
+    validSubs = []
+    for sub in subscriptions:
+        if sub[9] == True:
+            validSubs.append(sub)
+    return validSubs
+
+
+#def get_non_received_editions():
+
 
 def find_key_by_value(dictionary, value):
     for key in dictionary.keys():

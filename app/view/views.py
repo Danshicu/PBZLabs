@@ -1,8 +1,10 @@
 import datetime
 import uuid
 
+
 import streamlit as st
 
+from time import sleep
 from ..db import db
 from ..db import db_interactions
 
@@ -18,19 +20,35 @@ class PagesController:
         st.session_state.currentSubscriptionOption = state
 
     @staticmethod
+    def set_current_worker_received_state(state):
+        st.session_state.currentWorkerReceivedEditionsOptions = state
+
+    @staticmethod
+    def set_current_issued_by_year_edition_state(state):
+        st.session_state.currentIssuedByYearEditionOptions = state
+
+    @staticmethod
     def init_states():
+        if 'currentWorkerReceivedEditionsOption' not in st.session_state:
+            st.session_state.currentWorkerReceivedEditionsOptions = 'write'
         if 'currentWorkerOption' not in st.session_state:
             st.session_state.currentWorkerOption = 'look'
         if 'currentSubscriptionOption' not in st.session_state:
             st.session_state.currentSubscriptionOption = 'look'
+        if 'currentIssuedByYearEditionOptions' not in st.session_state:
+            st.session_state.currentIssuedByYearEditionOptions = 'write'
 
     @staticmethod
     def reset_states():
+        PagesController.init_states()
+        st.session_state.currentIssuedByYearEditionOptions = 'write'
         st.session_state.currentWorkerOption = 'look'
         st.session_state.currentSubscriptionOption = 'look'
+        st.session_state.currentWorkerReceivedEditionsOptions = 'write'
 
     @staticmethod
     def add_worker_page():
+        PagesController.reset_states()
         st.set_page_config(page_title='Добавление нового сотрудника', layout='wide')
         st.write('## Информация о новом сотруднике')
         nameInput = st.text_input('ФИО сотрудника', placeholder='Введите ФИО сотрудника сюда...', max_chars=30)
@@ -39,9 +57,12 @@ class PagesController:
         isActive = st.checkbox('Работник в данный момент активен?')
         workerid=str(uuid.uuid4())
         addButton = st.button('Добавить работника в базу')
+        values = [nameInput, postID, isActive]
         if addButton:
-            db_interactions.insert_into(db.DBConnection.WORKERS_TABLE,
+            if all(values):
+                db_interactions.insert_into(db.DBConnection.WORKERS_TABLE,
                                         [workerid, nameInput, db_interactions.find_key_by_value(posts, postID), isActive])
+                st.write('Работник добавлен')
 
     @staticmethod
     def edit_worker_container(placeholder):
@@ -54,48 +75,26 @@ class PagesController:
             isActive = st.checkbox('Работник в данный момент активен?')
             if st.button('Отменить', on_click=lambda : PagesController.set_current_worker_state('look')):
                 pass
-            if st.button('Изменить данные работника'):
-                db_interactions.edit_worker([st.session_state.edit_worker_id, nameInput, db_interactions.find_key_by_value(posts, postID), isActive],
-                                            st.session_state.edit_worker_id)
-                PagesController.set_current_worker_state('look')
+            change_button =  st.button('Изменить данные работника')
+            if change_button:
+                db_interactions.edit_worker(
+                    [st.session_state.edit_worker_id, nameInput, db_interactions.find_key_by_value(posts, postID),
+                     isActive],
+                    st.session_state.edit_worker_id)
+                PagesController.reset_states()
+                placeholder.empty()
+                sleep(0.03)
                 PagesController.lookup_workers_container(placeholder)
 
     @staticmethod
-    def edit_subscription_container(placeholder):
-        with placeholder.container():
-            st.header = 'Изменение информации о подписке'
-            st.write('## Новая информация о подписке')
-            names = ['Название издания', 'Количество экземпляров за одну доставку', 'Дата начала подписки', 'Дата окончания подписки', 'Стоимость подписки', 'Периодичность доставки', 'Способ доставки', 'Предполагаемая дата доставки']
-            idToNameDictionary = db_interactions.get_edition_index_to_name_dictionary()
-            frequencyNames = db_interactions.create_dictionary_from_tuples(
-                db_interactions.get_all_values(db.DBConnection.FREQUENCY_OF_RELEASE_TABLE))
-            deliveryTypeName = db_interactions.create_dictionary_from_tuples(
-                db_interactions.get_all_values(db.DBConnection.DELIVERY_TYPES_TABLE))
-            namesSelectionInput = st.selectbox(names[0],index=None, options = list(idToNameDictionary.values()))
-            countInput = st.number_input(names[1])
-            startDateInput = st.date_input(names[2])
-            endDateInput = st.date_input(names[3])
-            subscriptionCost:st.text
-            cost: float
-            if namesSelectionInput and countInput:
-                cost = round(int(countInput) * db_interactions.get_edition_cost_from_index(
-                    db_interactions.find_key_by_value(idToNameDictionary, namesSelectionInput)), 3)
-                subscriptionCost = st.text(cost)
-            else:
-                subscriptionCost = st.text(names[4])
-            frequencyInput = st.selectbox(names[5], options = list(frequencyNames.values()))
-            deliveryTypeInput = st.selectbox(names[6], options=list(deliveryTypeName.values()))
-            deliveryTimeInput = st.date_input(names[7])
-            values = [namesSelectionInput, countInput, startDateInput, endDateInput, subscriptionCost, frequencyInput, deliveryTypeInput, deliveryTimeInput]
-            if st.button('Отменить', on_click=lambda : PagesController.set_current_subscription_state('look')):
-                pass
-            if st.button('Изменить данные подписки'):
-                if all(values):
-                    db_interactions.edit_subscription([db_interactions.find_key_by_value(idToNameDictionary, namesSelectionInput), countInput, startDateInput, endDateInput, cost, db_interactions.find_key_by_value(frequencyNames, frequencyInput), db_interactions.find_key_by_value(deliveryTypeName, deliveryTypeInput), deliveryTimeInput],st.session_state.edit_subscription_id)
-                    PagesController.set_current_subscription_state('look')
-                    PagesController.lookup_subscriptions_container(placeholder)
-
-
+    def lookup_all_subscriptions_page():
+        PagesController.init_states()
+        st.set_page_config(page_title='Просмотр всех оформленных подписок', layout='wide')
+        placeholder = st.empty()
+        if st.session_state.currentSubscriptionOption == 'look':
+            PagesController.lookup_subscriptions_container(placeholder)
+        if st.session_state.currentSubscriptionOption == 'edit':
+            PagesController.edit_subscription_container(placeholder)
 
     @staticmethod
     def lookup_subscriptions_container(placeholder):
@@ -108,16 +107,16 @@ class PagesController:
             db_interactions.get_all_values(db.DBConnection.DELIVERY_TYPES_TABLE))
         with placeholder.container():
             st.write('## Все оформленные подписки')
-            columns = st.columns(11)
+            columns = st.columns(12)
             names = ['Идентификатор подписки', 'Название издания', 'Количество экземпляров за одну доставку', 'Дата начала подписки',
                      'Дата окончания подписки', 'Стоимость подписки', 'Периодичность доставки', 'Способ доставки',
-                     'Предполагаемая дата доставки', 'Изменить', 'Удалить']
+                     'Предполагаемая дата доставки', 'Подписка активна', 'Изменить', 'Удалить']
             for i in range(0, len(names)):
                 with columns[i]:
                     st.write(names[i])
             for edition in subscriptions:
                 with st.container():
-                    columns=st.columns(11)
+                    columns=st.columns(12)
                     with columns[0]:
                         st.write(edition[0])
                     with columns[1]:
@@ -131,23 +130,78 @@ class PagesController:
                     with columns[5]:
                         st.write(edition[5])
                     with columns[6]:
-                        st.write(frequencyNames[edition[6]])
+                        name = str(frequencyNames[edition[6]]).split(', ')
+                        st.write(name[0])
                     with columns[7]:
                         st.write(deliveryTypeName[edition[7]])
                     with columns[8]:
                         st.write(edition[8])
                     with columns[9]:
+                        st.write(edition[9])
+                    with columns[10]:
                         edit_button = st.button('⚙️', key = edition[0])
                         if edit_button:
                             st.session_state.edit_subscription_id = edition[0]
                             PagesController.set_current_subscription_state('edit')
-                    with columns[10]:
-                        delete_button = st.button('🗑️', key = f'{edition[0]}_to_delete', on_click= lambda: db_interactions.delete_subscription(str(edition[0])))
+                            st.rerun()
+                    with columns[11]:
+                        delete_button = st.button('🗑️', key = f'{edition[0]}_to_delete')
+                        if delete_button:
+                            db_interactions.delete_subscription(edition[0])
 
+    @staticmethod
+    def edit_subscription_container(placeholder):
+        with placeholder.container():
+            st.header = 'Изменение информации о подписке'
+            st.write('## Новая информация о подписке')
+            names = ['Название издания', 'Количество экземпляров за одну доставку', 'Дата начала подписки',
+                     'Дата окончания подписки', 'Стоимость подписки', 'Периодичность доставки', 'Способ доставки',
+                     'Предполагаемая дата доставки']
+            idToNameDictionary = db_interactions.get_edition_index_to_name_dictionary()
+            frequencyNames = db_interactions.create_dictionary_from_tuples(
+                db_interactions.get_all_values(db.DBConnection.FREQUENCY_OF_RELEASE_TABLE))
+            visibleFrequencyNames = dict()
+            for freq in frequencyNames.values():
+                visibleFrequencyNames[freq] = str(freq).split(', ')[0]
+            deliveryTypeName = db_interactions.create_dictionary_from_tuples(
+                db_interactions.get_all_values(db.DBConnection.DELIVERY_TYPES_TABLE))
+            namesSelectionInput = st.selectbox(names[0], index=None, options=list(idToNameDictionary.values()))
+            countInput = st.number_input(names[1], min_value=1, step=1)
+            startDateInput = st.date_input(names[2])
+            endDateInput = st.date_input(names[3])
+            subscriptionCost: st.text
+            cost: float
+            if namesSelectionInput and countInput:
+                cost = round(countInput * db_interactions.get_edition_cost_from_index(
+                    db_interactions.find_key_by_value(idToNameDictionary, namesSelectionInput)), 3)
+                subscriptionCost = st.text(f"Стоимость подписки : {cost}")
+            else:
+                subscriptionCost = st.text(names[4])
+            frequencyInput = st.selectbox(names[5], options=list(visibleFrequencyNames.values()))
+            deliveryTypeInput = st.selectbox(names[6], options=list(deliveryTypeName.values()))
+            deliveryTimeInput = st.date_input(names[7])
+            isActive = st.checkbox('Подписка активна')
+            values = [namesSelectionInput, countInput, startDateInput, endDateInput, subscriptionCost, frequencyInput,
+                      deliveryTypeInput, deliveryTimeInput, isActive]
+            if st.button('Отменить', on_click=lambda: PagesController.set_current_subscription_state('look')):
+                pass
+            if st.button('Изменить данные подписки'):
+                if all(values):
+                    db_interactions.edit_subscription(
+                        [db_interactions.find_key_by_value(idToNameDictionary, namesSelectionInput), countInput,
+                         startDateInput, endDateInput, cost,
+                         db_interactions.find_key_by_value(frequencyNames, db_interactions.find_key_by_value(visibleFrequencyNames, frequencyInput)),
+                         db_interactions.find_key_by_value(deliveryTypeName, deliveryTypeInput), deliveryTimeInput, isActive],
+                        st.session_state.edit_subscription_id)
+                    PagesController.reset_states()
+                    placeholder.empty()
+                    sleep(0.03)
+                    PagesController.lookup_subscriptions_container(placeholder)
 
 
     @staticmethod
     def lookup_all_posts_page():
+        PagesController.reset_states()
         st.set_page_config(page_title='Просмотр всех должностей в библиотеке', layout='wide')
         st.write('## Все должности в библиотеке')
         positions = db_interactions.get_all_values(db.DBConnection.POSTS_TABLE)
@@ -164,6 +218,7 @@ class PagesController:
 
     @staticmethod
     def add_post_page():
+        PagesController.reset_states()
         st.set_page_config(page_title='Добавить новую должность', layout='wide')
         st.write('## Добавить должность')
         input1 = st.text_input('Кодовый номер должности', placeholder='Введите кодовый номер должности сюда...')
@@ -171,7 +226,7 @@ class PagesController:
         addButton = st.button('Добавить новую должность')
         if addButton:
             db_interactions.insert_into(db.DBConnection.POSTS_TABLE, [input1, input2])
-
+            st.write('Должность добавлена')
 
     @staticmethod
     def lookup_workers_container(placeholder):
@@ -209,8 +264,13 @@ class PagesController:
                         if edit_button:
                             st.session_state.edit_worker_id = worker[0]
                             PagesController.set_current_worker_state('edit')
+                            st.rerun()
                     with columns[5]:
-                        delete_button = st.button('🗑️', key = f'{worker[0]}_to_delete', on_click = lambda: db_interactions.delete_worker(str(worker[0])))
+                        delete_button = st.button('🗑️', key = f'{worker[0]}_to_delete')
+                        if delete_button:
+                            db_interactions.delete_worker(worker[0])
+                            placeholder.empty()
+                            st.rerun()
 
 
     @staticmethod
@@ -226,6 +286,7 @@ class PagesController:
 
     @staticmethod
     def lookup_all_edition_types_page():
+        PagesController.reset_states()
         st.set_page_config(page_title='Просмотр всех видов изданий', layout='wide')
         st.write('## Все виды изданий')
         editionTypes = db_interactions.get_all_values(db.DBConnection.EDITION_TYPES_TABLE)
@@ -242,6 +303,7 @@ class PagesController:
 
     @staticmethod
     def lookup_all_editions_page():
+        PagesController.reset_states()
         st.set_page_config(page_title='Просмотр всех изданий', layout='wide')
         st.write('## Все издания')
         editions = db_interactions.get_all_values(db.DBConnection.EDITION_TABLE)
@@ -267,22 +329,26 @@ class PagesController:
 
     @staticmethod
     def lookup_all_received_editions_page():
+        PagesController.reset_states()
         st.set_page_config(page_title='Просмотр всех полученных изданий', layout='wide')
         st.write('## Все полученные издания')
         editions = db_interactions.get_all_values(db.DBConnection.RECEIVED_EDITIONS_TABLE)
-        columns = st.columns(5)
+        columns = st.columns(6)
         with columns[0]:
             st.write('*Дата получения*')
         with columns[1]:
-            st.write('*Подписной индекс издания*')
+            st.write('*Дата выписки*')
         with columns[2]:
-            st.write('*Количество экземпляров*')
+            st.write('*Код подписки')
         with columns[3]:
-            st.write('*ФИО сотрудника*')
+            st.write('*Количество экземпляров*')
         with columns[4]:
+            st.write('*ФИО сотрудника*')
+        with columns[5]:
             st.write('*Должность сотрудника*')
         workers_name_post = db_interactions.get_worker_uuid_name_post_tuples()
         for edition in editions:
+            columns = st.columns(6)
             with columns[0]:
                 st.write(edition[0])
             with columns[1]:
@@ -290,16 +356,36 @@ class PagesController:
             with columns[2]:
                 st.write(edition[2])
             with columns[3]:
-                st.write(workers_name_post[edition][0])
+                st.write(edition[3])
             with columns[4]:
-                st.write(workers_name_post[edition][1])
+                st.write(workers_name_post[edition[4]][0])
+            with columns[5]:
+                st.write(workers_name_post[edition[4]][1])
 
     @staticmethod
     def insert_received_editions_page():
-        print()
+        PagesController.reset_states()
+        st.set_page_config(page_title='Подтвердить получение издания', layout='wide')
+        st.write('## Подтвердить получение')
+        idToName = db_interactions.get_valid_workers_uuid_to_name_dict()
+        workerBox = st.selectbox('Выберите работника который подтверждает получение', options=idToName.values())
+        issueDate = st.date_input('Выберите дату выписки изданий')
+        receiveDate = datetime.date.today()
+        editions = db_interactions.get_all_values(db.DBConnection.ISSUED_EDITIONS_TABLE)
+        subscripionIndex = st.selectbox('Выберите подписку', options = [subscription[0] for subscription in editions if subscription[1]>0])
+        count:int
+        if subscripionIndex and issueDate:
+            countInput = st.number_input('Введите количество полученных экземпляров', min_value=1, max_value=db_interactions.get_non_received_count(subscripionIndex, issueDate), step=1)
+            count = int(countInput)
+        addButton = st.button('Подтвердить получение изданий')
+        if addButton:
+            db_interactions.insert_into(db.DBConnection.RECEIVED_EDITIONS_TABLE, [receiveDate, issueDate, subscripionIndex, count, db_interactions.find_key_by_value(idToName, workerBox)])
+            st.write('Издание получено')
+
 
     @staticmethod
     def lookup_all_delivery_types_page():
+        PagesController.reset_states()
         st.set_page_config(page_title='Просмотр всех видов доставки', layout='wide')
         st.write('## Все виды доставки')
         deliveryTypes = db_interactions.get_all_values(db.DBConnection.DELIVERY_TYPES_TABLE)
@@ -315,34 +401,29 @@ class PagesController:
                 st.write(delType[1])
 
     @staticmethod
-    def lookup_all_subscriptions_page():
-        PagesController.init_states()
-        st.set_page_config(page_title='Просмотр всех оформленных подписок', layout='wide')
-        placeholder = st.empty()
-        if st.session_state.currentSubscriptionOption == 'look':
-            PagesController.lookup_subscriptions_container(placeholder)
-        if st.session_state.currentSubscriptionOption == 'edit':
-            PagesController.edit_subscription_container(placeholder)
-
-
-    @staticmethod
     def lookup_all_issued_editions_page():
+        PagesController.reset_states()
         st.set_page_config(page_title='Просмотр всех выписанных изданий', layout='wide')
         st.write('## Все выписанные издания')
         editions = db_interactions.get_all_values(db.DBConnection.ISSUED_EDITIONS_TABLE)
-        columns = st.columns(2)
+        columns = st.columns(3)
         with columns[0]:
             st.write('*Подписной индекс издания*')
         with columns[1]:
             st.write('*Количество не полученных экземпляров*')
+        with columns[2]:
+            st.write('*Дата выписки*')
         for edition in editions:
             with columns[0]:
                 st.write(edition[0])
             with columns[1]:
                 st.write(edition[1])
+            with columns[2]:
+                st.write(edition[2])
 
     @staticmethod
     def insert_subscription_page():
+        PagesController.reset_states()
         st.set_page_config(page_title='Просмотр всех подписок', layout='wide')
         st.header = 'Информация о всех подписках'
         names = ['Название издания', 'Количество экземпляров за одну доставку', 'Дата начала подписки',
@@ -354,19 +435,20 @@ class PagesController:
         deliveryTypeName = db_interactions.create_dictionary_from_tuples(
             db_interactions.get_all_values(db.DBConnection.DELIVERY_TYPES_TABLE))
         namesSelectionInput = st.selectbox(names[0], index=None, options=list(idToNameDictionary.values()))
-        countInput = st.number_input(names[1])
+        countInput = st.number_input(names[1], min_value=1, step=1)
         startDateInput = st.date_input(names[2])
         endDateInput = st.date_input(names[3])
         subscriptionCost: st.text
         cost:float
         if namesSelectionInput and countInput:
-            cost = round(int(countInput) * db_interactions.get_edition_cost_from_index(
+            cost = round(countInput * db_interactions.get_edition_cost_from_index(
                 db_interactions.find_key_by_value(idToNameDictionary, namesSelectionInput)), 3)
-            subscriptionCost = st.text(cost)
+            subscriptionCost = st.text(f"Стоимость подписки : {cost}")
         else:
             subscriptionCost = st.text(names[4])
-        frequencyInput = st.selectbox(names[5], options=list(frequencyNames.values()))
-        deliveryTypeInput = st.selectbox(names[6], options=list(deliveryTypeName.values()))
+        shortFreqNames = dict(zip(frequencyNames.keys(), [str(name).split(', ')[0] for name in frequencyNames.values()]))
+        frequencyInput = st.selectbox(names[5], options=shortFreqNames.values())
+        deliveryTypeInput = st.selectbox(names[6], options=deliveryTypeName.values())
         deliveryTimeInput = st.date_input(names[7])
         subscriptionId = str(uuid.uuid4())
         values = [namesSelectionInput, countInput, startDateInput, endDateInput, subscriptionCost, frequencyInput,
@@ -374,10 +456,12 @@ class PagesController:
         addButton = st.button('Добавить подписку')
         if addButton:
             if all(values):
-                db_interactions.insert_into(db.DBConnection.SUBSCRIPTIONS_TABLE,[subscriptionId, db_interactions.find_key_by_value(idToNameDictionary, namesSelectionInput), countInput, startDateInput, endDateInput, cost, db_interactions.find_key_by_value(frequencyNames, frequencyInput), db_interactions.find_key_by_value(deliveryTypeName, deliveryTypeInput), deliveryTimeInput])
+                db_interactions.insert_into(db.DBConnection.SUBSCRIPTIONS_TABLE,[subscriptionId, db_interactions.find_key_by_value(idToNameDictionary, namesSelectionInput), countInput, startDateInput, endDateInput, cost, db_interactions.find_key_by_value(shortFreqNames, frequencyInput), db_interactions.find_key_by_value(deliveryTypeName, deliveryTypeInput), deliveryTimeInput, True])
+                st.write('Подписка создана')
 
     @staticmethod
     def lookup_all_frequences_of_release_page():
+        PagesController.reset_states()
         st.set_page_config(page_title='Просмотр всех вариантов периодичности доставки', layout='wide')
         st.write('## Все варианты периодичности доставки')
         frequencies = db_interactions.get_all_values(db.DBConnection.FREQUENCY_OF_RELEASE_TABLE)
@@ -393,273 +477,115 @@ class PagesController:
                 name = str(frequency[1]).split(', ')
                 st.write(name[0])
 
+    @staticmethod
+    def write_issued_editions_by_year_container(placeholder):
+        getButton: st.button
+        with placeholder.container():
+            currentYear = datetime.date.today().year
+            years = list(range(currentYear, currentYear - 10, -1))
+            dateBox = st.selectbox(label='Выберите год для просмотра', options = years)
+            getButton = st.button(label='Найти издания')
+            if getButton:
+                if dateBox:
+                    PagesController.set_current_issued_by_year_edition_state('look')
+                    st.session_state.find_editions_by_year = dateBox
+                    placeholder.empty()
+                    sleep(0.03)
+                    PagesController.lookup_issued_editions_by_year_container(placeholder)
 
-
-
-
-
-'''def add_department_page():
-    st.set_page_config(page_title='Добавление подразделения', layout='wide')
-    st.write('## Добавить подразделение')
-    st.text_input('Название подразделения', placeholder='Введите название подразделения сюда', max_chars=100,
-                  key='department_name')
-    st.multiselect('Выберите должности данного подразделения',
-                   options=[position.cipher_name for position in fetch_all_positions(engine=initialize_engine())],
-                   key='department_positions')
-    st.button('Добавить новое подразделение', on_click=submit_department_creation)
-
-
-def lookup_all_departments_page():
-    st.set_page_config(page_title='Просмотр подразделений', layout='wide')
-    st.write('## Все подразделения предприятия')
-    departments = fetch_all_departments(engine=initialize_engine())
-    columns = st.columns(2)
-    with columns[0]:
-        st.write('*Название подразделения*')
-    with columns[1]:
-        st.write('*Должности данного подразделения*')
-    for department in departments:
-        with columns[0]:
-            st.write(department.name)
-        with columns[1]:
-            st.selectbox('Должности', options=[position.name for position in department.positions])
-
-
-def add_employee_page():
-    st.set_page_config(page_title='Добавить нового сотрудника', layout='wide')
-    st.write('## Добавить нового сотрудника')
-    st.text_input('Фамилия сотрудника', key='employee_last_name', max_chars=50)
-    st.text_input('Имя сотрудника', key='employee_first_name', max_chars=50)
-    st.text_input('Отчество сотрудника', key='employee_patronymic_name', max_chars=50)
-    st.date_input('Возраст сотрудника', key='employee_birthday_date', value=None,
-                  min_value=datetime.date(datetime.datetime.now().year - 100, 1, 1),
-                  max_value=datetime.date(datetime.datetime.now().year + 100, 12, 31))
-    st.selectbox('Пол сотрудника', key='employee_gender', options=['Мужской', 'Женский', 'Другой'])
-    st.selectbox('Семейный статус', key='employee_family_status', options=['Женат/Замужем', 'Холост/Не замужем'])
-    engine = initialize_engine()
-    departments = fetch_all_departments(engine)
-    dep_select = st.selectbox('Подразделение', key='employee_department', placeholder='Выберите подразделение...',
-                              options=[department.name for department in departments],
-                              index=None)
-    if dep_select:
-        department = fetch_department_by_name(engine, st.session_state['employee_department'])
-        pos_select = st.selectbox('Должность', key='employee_position', placeholder='Выберите должность...',
-                                  options=[position.cipher_name for position in department.positions],
-                                  index=None)
-        if pos_select:
-            position = fetch_position_by_cipher_name(engine, st.session_state['employee_position'])
-            st.slider('Категория', position.lowest_category, position.highest_category,
-                      position.lowest_category, key='employee_category')
-    st.button('Добавить нового сотрудника', on_click=submit_employee_creation)
-
-
-def lookup_all_employees():
-    st.set_page_config(page_title='Все сотрудники', layout='wide')
-    st.write('## Все сотрудники')
-    genders = {Gender.male: 'Мужской', Gender.female: 'Женский', Gender.other: 'Другой'}
-    family_status = {FamilyStatus.married: 'Женат/Замужем', FamilyStatus.not_married: 'Холост/Не замужем'}
-    st.session_state.employees_to_delete = []
-    columns = st.columns(11)
-    columns_names = ['*Фамилия*', '*Имя*', '*Отчество*', '*Дата рождения*', '*Пол*', '*Семейный статус*',
-                     '*Подразделение*', '*Должность*', '*Категория*', '*Выбрать*', '*Изменить*']
-    for i in range(len(columns)):
-        with columns[i]:
-            st.write(columns_names[i])
-    filter_employees()
-    placeholder = st.empty()
-    with placeholder.container():
-        for employee in st.session_state.employees:
-            with st.container():
-                columns = st.columns(11)
+    @staticmethod
+    def lookup_issued_editions_by_year_container(placeholder):
+        with placeholder.container():
+            received = db_interactions.get_editions_by_year(st.session_state.find_editions_by_year)
+            columns = st.columns(5)
+            with columns[0]:
+                st.write("Название издания")
+            with columns[1]:
+                st.write("Тип издания")
+            with columns[2]:
+                st.write("Стоимость на период подписки")
+            with columns[3]:
+                st.write("Начало подписки")
+            with columns[4]:
+                st.write("Конец подписки")
+            for edition in received:
+                columns = st.columns(5)
                 with columns[0]:
-                    st.write(employee.last_name)
+                    st.write(edition[0])
                 with columns[1]:
-                    st.write(employee.first_name)
+                    st.write(edition[1])
                 with columns[2]:
-                    st.write(employee.patronymic_name)
+                    st.write(edition[2])
                 with columns[3]:
-                    st.write(employee.birthday_date)
+                    st.write(edition[3])
                 with columns[4]:
-                    st.write(genders[employee.gender])
-                with columns[5]:
-                    st.write(family_status[employee.family_status])
-                with columns[6]:
-                    st.write('Нет' if employee.department is None else employee.department.name)
-                with columns[7]:
-                    st.write('Нет' if employee.position is None else employee.position.name)
-                with columns[8]:
-                    st.write(employee.category)
-                with columns[9]:
-                    chkbox = st.checkbox('Выбрать', key=f'check_employee_{employee.id}', label_visibility='hidden')
-                    if chkbox:
-                        st.session_state.employees_to_delete.append(employee.id)
-                with columns[10]:
-                    edit_button = st.button('⚙️', key=f'edit_employee_{employee.id}')
-                    if edit_button:
-                        st.session_state.edit_employee_id = employee.id
-                        st.write(st.session_state.edit_employee_id)
+                    st.write(edition[4])
 
-    with st.sidebar:
-        st.text_input('Отфильтровать по фамилии', key='employee_filter_last_name', max_chars=50,
-                      on_change=filter_employees)
-        st.text_input('Отфильтровать по имени', key='employee_filter_first_name', max_chars=50,
-                      on_change=filter_employees)
-        st.text_input('Отфильтровать по отчеству', key='employee_filter_patronymic_name', max_chars=50,
-                      on_change=filter_employees)
-        st.selectbox('Отфильтровать по должности',
-                     options=[position.cipher_name for position in fetch_all_positions(engine=initialize_engine())],
-                     key='employee_filter_position', index=None,
-                     on_change=filter_employees)
-        st.number_input('Отфильтровать по возрасту меньше указанного', key='employee_filter_age',
-                        max_value=120, min_value=15, value=120,
-                        on_change=filter_employees)
-        st.checkbox('Женщины пенсионного возраста?', key='employee_filter_retired_age',
-                    on_change=filter_employees)
-        st.button('Очистить все фильтры', key='clear_filters',
-                  on_click=clear_filters)
+    @staticmethod
+    def lookup_issued_by_year_editions_page():
+        PagesController.init_states()
+        st.set_page_config(layout='wide')
+        placeholder = st.empty()
+        if st.session_state.currentIssuedByYearEditionOptions == 'write':
+            PagesController.write_issued_editions_by_year_container(placeholder)
+        if st.session_state.currentIssuedByYearEditionOptions == 'look':
+            PagesController.lookup_issued_editions_by_year_container(placeholder)
 
-        button = st.button('🗑️ Удалить выбранных сотрудников', key='delete_employees')
-        if button:
-            st.write()
-            submit_delete_employees(employee_ids=st.session_state.employees_to_delete)
-            st.rerun()
-
-    if st.session_state.get('edit_employee_id'):
-        genders = {Gender.male: 'Мужской', Gender.female: 'Женский', Gender.other: 'Другой'}
-        family_status = {FamilyStatus.married: 'Женат/Замужем', FamilyStatus.not_married: 'Холост/Не замужем'}
-        engine = initialize_engine()
-        employee = fetch_employee_by_id(engine, st.session_state.edit_employee_id)
-        st.info('Редактирование информации о сотруднике сотрудника')
-        st.text_input('Фамилия', max_chars=50, value=employee.last_name,
-                      key='edit_employee_last_name')
-        st.text_input('Имя', max_chars=50, value=employee.first_name,
-                      key='edit_employee_first_name')
-        st.text_input('Отчество', max_chars=50, value=employee.patronymic_name,
-                      key='edit_employee_patronymic_name')
-        st.date_input('Дата рождения', value=employee.birthday_date,
-                      key='edit_employee_birthday_date',
-                      min_value=datetime.date(datetime.datetime.now().year - 100, 1, 1),
-                      max_value=datetime.date(datetime.datetime.now().year + 100, 12, 31)
-                      )
-        gender_opts = ['Мужской', 'Женский', 'Другой']
-        st.selectbox('Пол', options=gender_opts, index=gender_opts.index(genders[employee.gender]),
-                     key='edit_employee_gender')
-        family_status_opts = ['Женат/Замужем', 'Холост/Не замужем']
-        st.selectbox('Семейный статус', options=['Женат/Замужем', 'Холост/Не замужем'],
-                     index=family_status_opts.index(family_status[employee.family_status]),
-                     key='edit_employee_family_status')
-        departments = fetch_all_departments(engine)
-        department_opts = [department.name for department in departments]
-        department_value = department_opts.index(employee.department.name)
-        st.selectbox('Подразделение', options=department_opts,
-                     index=department_value,
-                     key='edit_employee_department')
-        department = fetch_department_by_name(engine, st.session_state['edit_employee_department'])
-        position_opts = [position.cipher_name for position in department.positions]
-        position_value = position_opts.index(employee.position.cipher_name)
-        st.selectbox('Должность', key='edit_employee_position',
-                     options=position_opts, index=position_value
-                     )
-        position = fetch_position_by_cipher_name(engine, st.session_state['edit_employee_position'])
-        st.slider('Категория', position.lowest_category, position.highest_category,
-                  value=employee.category, key='edit_employee_category', )
-        columns = st.columns(2)
-        with columns[0]:
-            st.button('Отредактировать информацию 🔄',
-                      on_click=lambda: submit_employee_edit(st.session_state.edit_employee_id))
-        with columns[1]:
-            st.button('Отмена ❌', on_click=clear_edit_employee_id)
-    else:
-        st.info('## Вы можете выбрать сотрудника для редактирования на этой странице!\n'
-                '### Для выбора нажмите ⚙️ напротив нужного сотрудника')
+    @staticmethod
+    def write_workers_received_editions_by_month_container(placeholder):
+        addButton:st.button
+        with placeholder.container():
+            dateBox = st.date_input(label = 'Выберите месяц для просмотра')
+            idToNameEditions = db_interactions.get_edition_index_to_name_dictionary()
+            editionBox = st.selectbox(label = 'Выберите издание', options=idToNameEditions.values())
+            addButton = st.button(label = 'Найти сотрудников')
+            values = [dateBox, editionBox]
+            if addButton:
+                if all(values):
+                    PagesController.set_current_worker_received_state('look')
+                    st.session_state.find_received_editions_month = dateBox
+                    st.session_state.find_received_editions_edition = db_interactions.find_key_by_value(idToNameEditions, editionBox)
+                    placeholder.empty()
+                    sleep(0.03)
+                    PagesController.lookup_workers_received_editions_by_month_container(placeholder)
 
 
-def filter_employees():
-    engine = initialize_engine()
-    employee_filters = {}
-    if st.session_state.get('employee_filter_last_name'):
-        employee_filters['last_name'] = st.session_state.employee_filter_last_name
-    if st.session_state.get('employee_filter_first_name'):
-        employee_filters['first_name'] = st.session_state.employee_filter_first_name
-    if st.session_state.get('employee_filter_patronymic_name'):
-        employee_filters['patronymic_name'] = st.session_state.employee_filter_patronymic_name
-    if st.session_state.get('employee_filter_position'):
-        position_id = fetch_position_by_cipher_name(engine=engine,
-                                                    cipher_name=st.session_state.employee_filter_position).id
-        employee_filters['position'] = position_id
-    if st.session_state.get('employee_filter_age'):
-        employee_filters['age'] = st.session_state.employee_filter_age
-    if st.session_state.get('employee_filter_retired_age'):
-        employee_filters['retired_age'] = True
-    st.session_state.employees = fetch_employees(engine=engine, filters=employee_filters)
 
-
-def clear_filters():
-    st.session_state.employee_filter_last_name = None
-    st.session_state.employee_filter_first_name = None
-    st.session_state.employee_filter_patronymic_name = None
-    st.session_state.employee_filter_position = None
-    st.session_state.employee_filter_age = 120
-    st.session_state.employee_filter_retired_age = False
-    st.session_state.employees = fetch_employees(engine=initialize_engine(), filters=dict())
-
-
-def clear_edit_employee_id():
-    if st.session_state.get('edit_employee_id'):
-        st.session_state.edit_employee_id = None
-
-
-def lookup_history_page():
-    st.set_page_config(page_title='История сотрудников', layout='wide')
-    st.session_state.records_to_delete = []
-    columns_names = ['*ФИО сотрудника*', '*Подразделение*', '*Должность*', '*Категория*', '*Статус*',
-                     '*Дополнительная информация*', '*Дата*', '*Выбрать*']
-    columns = st.columns(8)
-    for i in range(len(columns)):
-        with columns[i]:
-            st.write(columns_names[i])
-    engine = initialize_engine()
-    history_records = fetch_history(engine)
-    placeholder = st.empty()
-    with placeholder.container():
-        for record in history_records:
-            with st.container():
-                columns = st.columns(8)
+    @staticmethod
+    def lookup_workers_received_editions_by_month_container(placeholder):
+        with placeholder.container():
+            received = db_interactions.get_worker_received_edition(st.session_state.find_received_editions_edition, st.session_state.find_received_editions_month)
+            columns = st.columns(3)
+            idToNames = db_interactions.get_worker_uuid_to_name_dict()
+            with columns[0]:
+                st.write("Дата получения")
+            with columns[1]:
+                st.write("Количество экземпляров")
+            with columns[2]:
+                st.write("ФИО работника")
+            for edition in received:
+                columns = st.columns(3)
                 with columns[0]:
-                    st.write(record.employee_name)
+                    st.write(edition[0])
                 with columns[1]:
-                    department = fetch_only_department_by_id(engine, record.department_id)
-                    st.write(department.name)
+                    st.write(edition[3])
                 with columns[2]:
-                    position = fetch_only_position_by_id(engine, record.position_id)
-                    st.write(position.name)
-                with columns[3]:
-                    st.write(str(record.category))
-                with columns[4]:
-                    if record.status == WorkStatus.hired:
-                        st.markdown(':green[НАНЯТ]')
-                    elif record.status == WorkStatus.fired:
-                        st.markdown(':red[УВОЛЕН]')
-                    elif record.status == WorkStatus.moved:
-                        st.markdown(':blue[ПЕРЕМЕЩЁН]')
-                    elif record.status == WorkStatus.change_category:
-                        st.markdown(':yellow[ИЗМЕНЕНА КАТЕГОРИЯ]')
-                    else:
-                        st.write('НЕИЗВЕСТНО')
-                with columns[5]:
-                    st.write(str(record.additional_info))
-                with columns[6]:
-                    st.write(str(record.record_date))
-                with columns[7]:
-                    chkbox = st.checkbox('Выбрать', key=f'check_employee_{record.id}', label_visibility='hidden')
-                    if chkbox:
-                        st.session_state.records_to_delete.append(record.id)
-    with st.sidebar:
-        button = st.button('🗑️ Удалить выбранные записи', key='delete_records')
-        if button:
-            submit_delete_records(st.session_state.records_to_delete)
-            st.rerun()
-'''
+                    st.write(idToNames[edition[4]])
 
 
+    @staticmethod
+    def lookup_workers_received_editions_by_month_page():
+        PagesController.init_states()
+        st.set_page_config(layout = 'wide')
+        placeholder = st.empty()
+        if st.session_state.currentWorkerReceivedEditionsOptions == 'write':
+            PagesController.write_workers_received_editions_by_month_container(placeholder)
+        if st.session_state.currentWorkerReceivedEditionsOptions == 'look':
+            PagesController.lookup_workers_received_editions_by_month_container(placeholder)
+
+
+
+    @staticmethod
+    def lookup_non_received_editions_before_2_months_page():
+        pass
 

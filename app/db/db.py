@@ -14,13 +14,13 @@ class DBConnection:
 
     POSTS_TABLE = "posts"
     WORKERS_TABLE = "workers"
-    EDITION_TYPES_TABLE = "editionTypes"
+    EDITION_TYPES_TABLE = "editiontypes"
     EDITION_TABLE = "edition"
-    RECEIVED_EDITIONS_TABLE = "receivedEditions"
-    DELIVERY_TYPES_TABLE = "deliveryTypes"
-    ISSUED_EDITIONS_TABLE = "issuedEditions"
+    RECEIVED_EDITIONS_TABLE = "receivededitions"
+    DELIVERY_TYPES_TABLE = "deliverytypes"
+    ISSUED_EDITIONS_TABLE = "issuededitions"
     SUBSCRIPTIONS_TABLE = "subscriptions"
-    FREQUENCY_OF_RELEASE_TABLE = "frequencyOfRelease"
+    FREQUENCY_OF_RELEASE_TABLE = "frequencyofrelease"
 
     def __init__(self):
         self.isActive=True
@@ -43,3 +43,7 @@ class DBController:
     def Save(self):
         if self.connection.isActive:
             self.connection.Connection().commit()
+
+    def Reset(self):
+        if self.connection.isActive:
+            self.connection.Connection().rollback()

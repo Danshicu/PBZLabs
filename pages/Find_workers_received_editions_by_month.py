@@ -1,0 +1,3 @@
+from app.view.views import PagesController
+
+PagesController.lookup_workers_received_editions_by_month_page()
