@@ -1,0 +1,3 @@
+from app.view.views import PagesController
+
+PagesController.lookup_non_received_editions_before_2_months_page()

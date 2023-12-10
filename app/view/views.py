@@ -587,5 +587,27 @@ class PagesController:
 
     @staticmethod
     def lookup_non_received_editions_before_2_months_page():
-        pass
+        PagesController.reset_states()
+        st.set_page_config(page_title='Просмотр всех не полученных изданий', layout='wide')
+        st.write('## Все не полученные за предыдущие 2 месяца издания')
+        editions = db_interactions.get_non_received_editions()
+        columns = st.columns(4)
+        with columns[0]:
+            st.write('*Название издания*')
+        with columns[1]:
+            st.write('*Дата подписки*')
+        with columns[2]:
+            st.write('*Периодичность издания*')
+        with columns[3]:
+            st.write('*Количество не полученных померов*')
+        for edition in editions:
+            with columns[0]:
+                st.write(edition[0])
+            with columns[1]:
+                st.write(edition[1])
+            with columns[2]:
+                st.write(edition[2])
+            with columns[3]:
+                st.write(edition[3])
+
 

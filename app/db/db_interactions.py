@@ -196,9 +196,19 @@ def get_worker_received_edition(subscriptionIndex, date):
     editions = get_all_values(DBConnection.RECEIVED_EDITIONS_TABLE)
     received = []
     for edition in editions:
-        if edition[0].year == date.year and edition[0].month == date.month and edition[2] == subscriptionIndex:
+        if edition[0].year == date.year and edition[0].month == date.month and get_editionIndex_from_sub_uuid(edition[2]) == subscriptionIndex:
             received.append(edition)
     return received
+
+def get_editionIndex_from_sub_uuid(uuid):
+    query = f"select editionIndex from {DBConnection.SUBSCRIPTIONS_TABLE} where thisID = '{uuid}'"
+    with dbController.Cursor() as cursor:
+        try:
+            cursor.execute(query)
+            return cursor.fetchone()[0]
+        except Exception as e:
+            dbController.Reset()
+            print(e)
 
 def get_valid_workers():
     workers = get_all_values(DBConnection.WORKERS_TABLE)
@@ -227,7 +237,25 @@ def get_active_subscriptions():
     return validSubs
 
 
-#def get_non_received_editions():
+def get_non_received_editions():
+    editions = get_all_values(DBConnection.ISSUED_EDITIONS_TABLE)
+    subscriptions = get_all_values(DBConnection.SUBSCRIPTIONS_TABLE)
+    idToNameDictionary = get_edition_index_to_name_dictionary()
+    frequencyNames = create_dictionary_from_tuples(
+        get_all_values(DBConnection.FREQUENCY_OF_RELEASE_TABLE))
+    requestResult = []
+    for subscription in subscriptions:
+        count = 0
+        startDate = subscription[3]
+        name = idToNameDictionary[subscription[1]]
+        frequency = str(frequencyNames[subscription[6]]).split(', ')[0]
+        for edition in editions:
+            if subscription[0] == edition[0]:
+                if edition[2] >  datetime.date.today() - datetime.timedelta(days = 60):
+                    count+=edition[1]
+        if count>0:
+            requestResult.append((name, startDate, frequency, count))
+    return requestResult
 
 
 def find_key_by_value(dictionary, value):
