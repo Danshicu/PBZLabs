@@ -1,0 +1,105 @@
+create table posts(
+    thisID serial primary key,
+    postName varchar(20) NOT NULL
+)
+
+create table workers(
+    thisID uuid primary key,
+    fullname varchar(30) NOT NULL,
+    postId integer,
+    isActive bool NOT NULL DEFAULT true,
+    foreign key(postId) references posts(thisID)
+)
+
+create table editionTypes(
+    thisID  serial primary key,
+    editionName varchar(20) NOT NULL
+)
+
+create table edition(
+    subscriptionIndex varchar(15) primary key,
+    editionName varchar(15) NOT NULL,
+    editionType int NOT NULL,
+    subscriptionPerCopyCost float NOT NULL,
+    foreign key(editionType) references editionTypes(thisID),
+    CHECK (subscriptionPerCopyCost>0)
+)
+
+create table receivedEditions(
+    receiveDate DATE NOT NULL DEFAULT CURRENT_DATE,
+    issueDate DATE NOT NULL,
+    subscriptionIndex uuid NOT NULL,
+    countOfCopies int NOT NULL,
+    workerId uuid,
+    foreign key(workerId) references workers(thisID),
+    foreign key(subscriptionIndex) references subscriptions(thisID),
+    PRIMARY KEY(subscriptionIndex, issueDate),
+    CHECK(countOfCopies>0)
+)
+
+create table deliveryTypes(
+    thisID serial primary key,
+    nameOfType varchar(15) NOT NULL
+)
+
+
+
+
+
+create table issuedEditions(
+    subscriptionID uuid NOT NULL,
+    nonReceivedEditionCount int NOT NULL,
+    dateOfIssue date NOT NULL DEFAULT CURRENT_DATE,
+    foreign key(subscriptionID) references subscriptions(thisID),
+    CHECK(nonReceivedEditionCount>-1),
+    PRIMARY KEY(subscriptionID, dateOfIssue) 
+)
+
+create table subscriptions(
+    thisID uuid PRIMARY KEY,
+    editionIndex varchar(15),
+    countOfCopiesPerTime int NOT NULL,
+    startDate date NOT NULL,
+    endDate date NOT NULL,
+    subscriptionCost float NOT NULL,
+    frequencyOfRelease int,
+    deliveryTypeId int,
+    dateOfDelivery date NOT NULL,
+    isActive bool NOT NULL,
+    foreign key(editionIndex) references edition(subscriptionIndex),
+    foreign key(frequencyOfRelease) references frequencyOfRelease(thisID),
+    foreign key(deliveryTypeId) references deliveryTypes(thisID),
+    CHECK(countOfCopiesPerTime>0),
+    CHECK(subscriptionCost>0),
+    CHECK(startDate<endDate),
+    CHECK(dateOfDelivery>startDate AND dateOfDelivery<endDate)
+)
+
+create table frequencyOfRelease(
+	thisID serial primary key,
+	frequency interval NOT NULL,
+	CHECK(frequency > interval'1 day')
+);
+
+
+CREATE OR REPLACE FUNCTION delete_on_receive() RETURNS trigger AS $delete_on_receive$
+	BEGIN
+		UPDATE  issuedEditions
+		SET nonReceivedEditionCount = nonReceivedEditionCount -NEW.countOfCopies WHERE subscriptionID = NEW.subscriptionIndex AND dateOfIssue = NEW.issueDate;
+		RETURN NEW;
+	END;
+$delete_on_receive$ LANGUAGE plpgsql;
+
+CREATE TRIGGER delete_on_receive AFTER INSERT ON receivedEditions
+	FOR EACH ROW EXECUTE PROCEDURE delete_on_receive();
+
+CREATE OR REPLACE FUNCTION next_delivery() RETURNS trigger AS $next_delivery$
+    BEGIN
+   	 UPDATE subscriptions SET dateOfDelivery = dateOfDelivery + (SELECT frequency FROM frequencyOfRelease JOIN subscriptions ON subscriptions.frequencyOfRelease = frequencyOfRelease.thisID AND subscriptions.thisID = NEW.subscriptionID) WHERE subscriptions.thisID = NEW.subscriptionID;
+   	 RETURN NEW;
+    END;
+$next_delivery$ LANGUAGE plpgsql;
+
+CREATE TRIGGER next_delivery AFTER INSERT ON issuedEditions
+    FOR EACH ROW EXECUTE PROCEDURE next_delivery();
+

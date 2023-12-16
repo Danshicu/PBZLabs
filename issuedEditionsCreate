@@ -1,5 +1,0 @@
-create table issuedEditions(
-	editionSubscribeIndex varchar(15) primary key NOT NULL,
-	nonReceivedEditionCount int NOT NULL,
-	foreign key(editionSubscribeIndex) references edition(subscriptionIndex)
-)

@@ -1,6 +1,0 @@
-create table workers(
-	workerId serial primary key NOT NULL,
-	fullname varchar(30) NOT NULL,
-	postId integer, 
-	foreign key(postId) references posts(postId)
-)
